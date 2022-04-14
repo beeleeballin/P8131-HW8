@@ -9,7 +9,12 @@ Load packages
 ```{r, message=F}
 library(tidyverse)
 library(readxl)
+library(gee)
+library(lme4)
+library(nlme)
 ```
+
+## Problem 1
 
 Import data
 ```{r}
@@ -28,8 +33,12 @@ data =
 a) 
 **Interpret and discuss the bivariate, cross-sectional relationship between group assignment and health self-rating.**
 
-Samples that were given the control treatment (no educational intervention) had a more even-split health responses, where as lower proportion of samples in the intervention treatment reported good health. By count, there are more samples who reported poor health in the intervention group than the control group, even when the total sample count in the control group (41) exceeds that of the intervention group (39). While the treatment assignments were random, the baseline status for the 2 groups are not equivalent and the discrepancy could impact the study conclusions, especially when the within-group progression over time is ignored. 
+Samples that were given the control treatment (no educational intervention) had a more even-split health responses, where as lower proportion of samples in the intervention treatment reported good health. By count, there are more samples who reported poor health in the intervention group than the control group, even when the total sample count in the control group (41) exceeds that of the intervention group (39). While the treatment assignments were random, the baseline status for the 2 groups are not equivalent, and the discrepancy could impact study conclusions when the unobservable differences between groups are ignored. 
+
+The benefit of having longitudinal data is it could control for those time-invariant differences. Having multiple observations per individual allows us to base estimates on the variation within individuals. However, the correlation among the observations from an individual must be taken into account.
+
 ```{r, message=F}
+# plot the response counts for both the control and the intervention group
 data %>% 
   filter(
     time == "1"
@@ -57,8 +66,8 @@ data %>%
 
 b)
 **Interpret health status over time using a GEE model**
-Perform a longitudinal data analysis across all study follow-up visits (but not at randomization) to describe the relationship of the participants self-ratings as a function of the effects of health self-rating at the baseline, treatment group, month post randomization, and age group as predictors. Fit a GEE with unstructured correlation structure. Interpret your results.
 
+The non-parametric GEE model averages over all individuals to make a population inference by making assuming a within-subject covariance structure. For example, according to the summary estimates, compared to the population that reported "poor" health as its baseline response, the "good" health population has a 1.82 increase in log odds of reporting another good health response by the second month's visit, while adjusting for treatment and age group. 
 
 ```{r}
 # Create a new column showing baseline health rating, and a new column representing good health as 1, poor health as 0
@@ -74,11 +83,38 @@ data_bl =
     names_to = "time", 
     values_to = "health"
   ) %>% 
+  rename("baseline" = `1`) %>% 
   mutate(
     time = factor(time),
+    baseline = factor(baseline, levels = c("Poor", "Good")),
+    health = factor(health, levels = c("Poor", "Good")),
     nhealth = as.numeric(health == "Good")
-  ) %>% 
-  rename("baseline" = `1`)
+  )
+  
 ```
 
+```{r}
+gee_fit = gee(nhealth ~ baseline + txt + time + agegroup, 
+              data = data_bl, 
+              family = "binomial", 
+              id = id,
+              corstr = "unstructured",
+              scale.fix = FALSE) 
+summary(gee_fit)
+```
+
+c)
+**Generalized Linear Mixed Model**
+GLMM is an extension of generalized linear models to include both fixed and random effects on a subject level, and therefore its interpretation is similar. Reading from our summary, compared to an individual that reported "poor" health as its baseline response, a "good" health individual has a 2.81 increase in log odds of reporting another good health response by the second month's visit, while adjusting for treatment and age group. 
+
+```{r}
+glmm_fit = glmer(nhealth ~ baseline + txt + time + agegroup + (1 | id),
+                 family = 'binomial', data = data_bl)
+summary(glmm_fit)
+```
+
+Our model fits random intercepts per individual, and it adds or subtracts from the marginal intercept $\beta_0$ in the fixed effect. This makes a GLMM model inherently different, because a covariance model is estimated, not assumed under some structure. Furthermore, there is an added random factor with respect to each subject at the cost of computation power. 
+```{r}
+random.effects(glmm_fit)
+```
 
