@@ -1,5 +1,5 @@
 ---
-title: "P8131-HW8"
+title: "P8131 HW8"
 author: "Brian Jo Hsuan Lee"
 date: "4/13/2022"
 output: pdf_document
@@ -28,7 +28,7 @@ data =
 a) 
 **Interpret and discuss the bivariate, cross-sectional relationship between group assignment and health self-rating.**
 
-Samples that were given the control treatment (no intervention) had a more evenly split health self-rating responses, where as lower proportion of samples in the intervention treatment reported good health. There are more samples who reported poor health in the intervention group than the control group, even when the total sample count in the control group (41) exceeds that of the intervention group (39). While the treatment assignments were random, the baseline status for the groups are not equivalent and the discrepancy could impact the study conclusions, especially when the within-group progression over time is ignored. 
+Samples that were given the control treatment (no educational intervention) had a more even-split health responses, where as lower proportion of samples in the intervention treatment reported good health. By count, there are more samples who reported poor health in the intervention group than the control group, even when the total sample count in the control group (41) exceeds that of the intervention group (39). While the treatment assignments were random, the baseline status for the 2 groups are not equivalent and the discrepancy could impact the study conclusions, especially when the within-group progression over time is ignored. 
 ```{r, message=F}
 data %>% 
   filter(
@@ -54,4 +54,31 @@ data %>%
     plot.title = element_text(size = 11, hjust = 0.5)
   )
 ```
+
+b)
+**Interpret health status over time using a GEE model**
+Perform a longitudinal data analysis across all study follow-up visits (but not at randomization) to describe the relationship of the participants self-ratings as a function of the effects of health self-rating at the baseline, treatment group, month post randomization, and age group as predictors. Fit a GEE with unstructured correlation structure. Interpret your results.
+
+
+```{r}
+# Create a new column showing baseline health rating, and a new column representing good health as 1, poor health as 0
+
+data_bl =
+  data %>% 
+  pivot_wider(
+    names_from = time,
+    values_from = health
+  ) %>% 
+  pivot_longer(
+    `2`:`4`, 
+    names_to = "time", 
+    values_to = "health"
+  ) %>% 
+  mutate(
+    time = factor(time),
+    nhealth = as.numeric(health == "Good")
+  ) %>% 
+  rename("baseline" = `1`)
+```
+
 
